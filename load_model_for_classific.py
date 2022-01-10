@@ -22,7 +22,7 @@ if not os.path.exists(dir_classific):
 def classific_imgs():
     PATH = "model_for_classification_documents.pt"
     model = torch.load(PATH)
-    labels = ['line', 'port', 'two_page_port', 'garbage']
+    labels = [dir_line, dir_port, dir_port_other, dir_garbage]
     id2label = {v: k for v, k in enumerate(labels)}
     print(id2label)
     feature_extractor = LayoutLMv2FeatureExtractor()
