@@ -11,11 +11,12 @@ from transformers import LayoutLMv2ForSequenceClassification
 from transformers import AdamW
 from tqdm.notebook import tqdm
 
-
-# image_original = Image.open("categories_doc/black_si_trance_line/7534  MAERSK GIRONDE В 04.11.2021.pdf-038.jpg")
-# image_original = image_original.resize((550, 600), Image.ANTIALIAS)
-# image_original.save("7534  MAERSK GIRONDE В 04.11.2021.pdf-038.jpg", optimize=True, quality=95)
-image = Image.open("7534  MAERSK GIRONDE В 04.11.2021.pdf-038.jpg")
+file_for_check_model = '7534  MAERSK GIRONDE В 04.11.2021.pdf-000.jpg'
+image_original = Image.open(f"categories_doc/line/{file_for_check_model}")
+(width, height) = image_original.size
+image_original = image_original.resize((width // 4, height // 4), Image.ANTIALIAS)
+image_original.save(file_for_check_model, optimize=True, quality=95)
+image = Image.open(file_for_check_model)
 image = image.convert("RGB")
 print(image)
 
@@ -153,7 +154,7 @@ for k, v in encoded_inputs.items():
     encoded_inputs[k] = v.to(model.device)
 
 # save model
-PATH = "model_for_classification_documents_3.pt"
+PATH = "model_for_classification_documents.pt"
 torch.save(model, PATH)
 
 # forward pass
