@@ -9,20 +9,20 @@ from transformers import LayoutLMv2FeatureExtractor, LayoutLMv2Tokenizer, Layout
 dir_classific = 'dir_classific'
 dir_line = 'line'
 dir_port = 'port'
-dir_port_other = 'two_page_port'
+dir_two_page_port = 'two_page_port'
 dir_garbage = 'garbage'
 
 if not os.path.exists(dir_classific):
     os.makedirs(os.path.join(dir_classific, dir_line))
     os.makedirs(os.path.join(dir_classific, dir_port))
-    os.makedirs(os.path.join(dir_classific, dir_port_other))
+    os.makedirs(os.path.join(dir_classific, dir_two_page_port))
     os.makedirs(os.path.join(dir_classific, dir_garbage))
 
 
 def classific_imgs():
     PATH = "model_for_classification_documents.pt"
     model = torch.load(PATH)
-    labels = [dir_line, dir_port, dir_port_other, dir_garbage]
+    labels = [dir_line, dir_port, dir_two_page_port, dir_garbage]
     id2label = {v: k for v, k in enumerate(labels)}
     print(id2label)
     feature_extractor = LayoutLMv2FeatureExtractor()
@@ -53,7 +53,7 @@ def classific_imgs():
         elif predict == 'port':
             shutil.move(file_name, f"{dir_classific}/{dir_port}")
         elif predict == 'two_page_port':
-            shutil.move(file_name, f"{dir_classific}/{dir_port_other}")
+            shutil.move(file_name, f"{dir_classific}/{dir_two_page_port}")
         elif predict == 'garbage':
             shutil.move(file_name, f"{dir_classific}/{dir_garbage}")
 
