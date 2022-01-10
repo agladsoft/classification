@@ -5,13 +5,6 @@ import torch
 from PIL import Image
 from transformers import LayoutLMv2FeatureExtractor, LayoutLMv2Tokenizer, LayoutLMv2Processor
 
-# turned_img = sys.argv[1]
-# dir_classific = sys.argv[2]
-
-# if not os.path.exists(dir_classific):
-#     os.makedirs(os.path.join(dir_classific, dir_line))
-#     os.makedirs(os.path.join(dir_classific, dir_port))
-#     os.makedirs(os.path.join(dir_classific, dir_line_or_port))
 
 dir_classific = 'dir_classific'
 dir_line = 'line'
