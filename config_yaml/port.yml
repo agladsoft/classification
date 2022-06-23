@@ -1,0 +1,7 @@
+labels:
+  - label: "ship_and_voyage"
+    key: "Таможенный пост"
+
+  - label: "ship_and_voyage2"
+    key: "Поручение на погрузку"
+

@@ -1,0 +1,18 @@
+labels:
+  - label: "line_label"
+    key: "РУСКОН"
+
+  - label: "port_load"
+    key: "ПОРТ ПОГРУЗКИ"
+
+  - label: "port_unload"
+    key: "ОТГРУЗИТЬ В ПОРТ"
+
+  - label: "shipper"
+    key: "ОТПРАВИТЕЛЬ"
+
+  - label: "contract"
+    key: "КОНТРАКТ"
+
+  - label: "goods_name_rus"
+    key: "НАИМЕНОВАНИЕ ГРУЗА"

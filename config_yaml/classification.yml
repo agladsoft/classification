@@ -1,0 +1,47 @@
+#port:
+#  -name: port
+#  -folder: "all_files/dir_classific/port"
+#  -key: "Поручение на погрузку"
+#  -config: "port.yml"
+#
+#
+#line:
+#  -name: line
+#  -folder: "all_files/dir_classific/line"
+#  -key: "Договор между"
+#  -config: "line.yml"
+#
+#
+#contract:
+#  -name: contract
+#  -folder: "all_files/dir_classific/contract"
+#  -key: "Дополнительное соглашение"
+#  -config: "contract.yml"
+#
+#
+#unknown:
+#  -name: unknown
+#  -folder: "all_files/dir_classific/unknown"
+#  -key: None
+
+
+
+classification:
+  - name: port
+    folder: "all_files/dir_classific/port"
+    key: "Поручение на погрузку"
+    config: "config_yaml/port.yml"
+
+  - name: line
+    folder: "all_files/dir_classific/line"
+    key: "Договор между"
+    config: "config_yaml/line.yml"
+
+  - name: contract
+    folder: "all_files/dir_classific/contract"
+    key: "Дополнительное соглашение"
+    config: "config_yaml/contract.yml"
+
+  - name: unknown
+    folder: "all_files/dir_classific/unknown"
+    key: None

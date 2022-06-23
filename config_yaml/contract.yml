@@ -1,0 +1,9 @@
+labels:
+  - label: "contract_label"
+    key: "Дополнительное соглашение"
+
+  - label: "contract_label2"
+    key: "К ДОГОВОРУ"
+
+  - label: "contract_label3"
+    key: "Софт ИТ"
