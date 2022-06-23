@@ -129,12 +129,12 @@ terminado==0.12.1
 testpath==0.5.0
 tokenizers==0.11.2
 toml==0.10.2
-torch==1.10.1
+# torch==1.10.1
 torchvision==0.11.2
 tornado==6.1
 tqdm==4.62.3
 traitlets==5.1.1
-transformers @ git+https://github.com/huggingface/transformers.git@857ab55c01cf7213bc1822933cd2ef2b7552bac4
+# transformers @ git+https://github.com/huggingface/transformers.git@857ab55c01cf7213bc1822933cd2ef2b7552bac4
 typing_extensions==4.0.1
 urllib3==1.26.7
 variable==0.0.4
