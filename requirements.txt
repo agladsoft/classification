@@ -23,7 +23,7 @@ datasets==1.17.0
 debugpy==1.5.1
 decorator==5.1.0
 defusedxml==0.7.1
-detectron2 @ git+https://github.com/facebookresearch/detectron2.git@bb96d0b01d0605761ca182d0e3fac6ead8d8df6e
+# detectron2 @ git+https://github.com/facebookresearch/detectron2.git@bb96d0b01d0605761ca182d0e3fac6ead8d8df6e
 dill==0.3.4
 entrypoints==0.3
 filelock==3.4.2
