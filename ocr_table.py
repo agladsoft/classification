@@ -19,6 +19,7 @@ except ImportError:
 import pytesseract
 
 
+
 file = sys.argv[1]
 output_directory = sys.argv[2]
 output_directory_csv = sys.argv[3]
