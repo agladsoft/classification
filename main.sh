@@ -4,8 +4,10 @@ activate () {
 }
 activate
 
-pdf_path=/home/timur/PycharmWork/classification_text/all_files
-pdf_done_path=/home/timur/PycharmWork/classification_text/done
+#pdf_path=/home/timur/PycharmWork/classification_text/all_files
+#pdf_done_path=/home/timur/PycharmWork/classification_text/done
+pdf_path=/home/ruscon/IDP/classification/all_files
+pdf_done_path=/home/ruscon/IDP/classification/done
 mkdir "${pdf_done_path}"
 echo "$pdf_path"
 
