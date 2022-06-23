@@ -3,18 +3,18 @@ import os
 import re
 import sys
 from PIL import Image
-import torch
-from transformers import LayoutLMTokenizer
+# import torch
+# from transformers import LayoutLMTokenizer
 from scipy.ndimage import interpolation as inter
 import math
 import logging
 import subprocess
 import shutil
-import statistics
+# import statistics
 import cv2
 import numpy as np
 import pytesseract
-from scipy import ndimage
+# from scipy import ndimage
 from PyPDF2 import PdfFileReader
 from MyJSONFormatter import MyJSONFormatter
 import yaml
