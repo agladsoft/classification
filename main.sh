@@ -113,7 +113,6 @@ rm -r "${pdf_path}/cache"
 
 
 
-
 #pdf_path=/home/timur/PycharmWork/classification_text/all_files
 #path_project=/home/timur/PycharmWork/classification_text
 #mkdir "$path_project/cache"  # Создаем папку с кэшем
