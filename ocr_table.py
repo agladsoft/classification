@@ -18,7 +18,7 @@ except ImportError:
     import Image
 import pytesseract
 
-os.environ['OMP_THREAD_LIMIT'] = '1'
+os.environ['OMP_THREAD_LIMIT'] = '16'
 
 file = sys.argv[1]
 output_directory = sys.argv[2]

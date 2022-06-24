@@ -19,7 +19,7 @@ from PyPDF2 import PdfFileReader
 from MyJSONFormatter import MyJSONFormatter
 import yaml
 
-os.environ['OMP_THREAD_LIMIT'] = '1'
+os.environ['OMP_THREAD_LIMIT'] = '16'
 
 
 class WorkMultiPages:
