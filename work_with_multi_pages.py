@@ -1,4 +1,3 @@
-import glob
 import os
 import re
 import sys
@@ -87,15 +86,14 @@ class WorkMultiPages:
             os.makedirs(os.path.join("all_files/dir_classific", "contract"))
             os.makedirs(os.path.join("all_files/dir_classific", "unknown"))
 
-        for file_name in sorted(glob.glob(f"{os.path.dirname(self.cache)}/*.jpg")):
-            im = cv2.imread(str(file_name))
-            rotate_img = pytesseract.image_to_osd(im)
-            angle_rotated_image = int(re.search('(?<=Orientation in degrees: )\d+', rotate_img).group(0))
-            rotated = self.rotate(im, angle_rotated_image, (0, 0, 0))
-            file_name = os.path.basename(file_name)
-            cv2.imwrite(f'{os.path.dirname(self.cache)}/{file_name}', rotated)
-            logger.info(f'{os.path.basename(file_name)}', extra={'rotate': angle_rotated_image})
-            logger_out.info(f'Rotate: {angle_rotated_image}, Filename: {os.path.basename(file_name)}')
+        im = cv2.imread(str(self.input_file))
+        rotate_img = pytesseract.image_to_osd(im)
+        angle_rotated_image = int(re.search('(?<=Orientation in degrees: )\d+', rotate_img).group(0))
+        rotated = self.rotate(im, angle_rotated_image, (0, 0, 0))
+        file_name = os.path.basename(self.input_file)
+        cv2.imwrite(f'{os.path.dirname(self.cache)}/{file_name}', rotated)
+        logger.info(f'{os.path.basename(file_name)}', extra={'rotate': angle_rotated_image})
+        logger_out.info(f'Rotate: {angle_rotated_image}, Filename: {os.path.basename(file_name)}')
 
     def correct_skew(self, delta, limit):
         def determine_score(arr, angle):
@@ -105,26 +103,25 @@ class WorkMultiPages:
             return histogram, score
 
         logger, logger_out = self.logging_init('turn_small_img', 'turn_small_img_out', 'turn_small_img')
-        for full_image in sorted(glob.glob(f"{os.path.dirname(self.cache)}/*.jpg")):
-            image = cv2.imread(full_image)
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+        image = cv2.imread(self.input_file)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-            scores = []
-            angles = np.arange(-limit, limit + delta, delta)
-            for angle in angles:
-                histogram, score = determine_score(thresh, angle)
-                scores.append(score)
+        scores = []
+        angles = np.arange(-limit, limit + delta, delta)
+        for angle in angles:
+            histogram, score = determine_score(thresh, angle)
+            scores.append(score)
 
-            best_angle = angles[scores.index(max(scores))]
+        best_angle = angles[scores.index(max(scores))]
 
-            (h, w) = image.shape[:2]
-            center = (w // 2, h // 2)
-            M = cv2.getRotationMatrix2D(center, best_angle, 1.0)
-            corrected = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-            logger.info(f'{os.path.basename(full_image)}', extra={'skew': best_angle})
-            logger_out.info(f'Skew is: {best_angle:.04f}, Filename: {os.path.basename(full_image)}')
-            cv2.imwrite(f"{os.path.dirname(self.cache)}/{os.path.basename(full_image)}", corrected)
+        (h, w) = image.shape[:2]
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, best_angle, 1.0)
+        corrected = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        logger.info(f'{os.path.basename(self.input_file)}', extra={'skew': best_angle})
+        logger_out.info(f'Skew is: {best_angle:.04f}, Filename: {os.path.basename(self.input_file)}')
+        cv2.imwrite(f"{os.path.dirname(self.cache)}/{os.path.basename(self.input_file)}", corrected)
 
     @staticmethod
     def normalize_box(box, width, height):
@@ -137,7 +134,7 @@ class WorkMultiPages:
 
     @staticmethod
     def move_file_in_dir(str_of_doc, file_name, predict=None):
-        with open("config_yaml/classification.yml", "r") as stream:
+        with open("config_yaml/classification/classification.yml", "r") as stream:
             try:
                 yaml_file = yaml.safe_load(stream)
                 for len_label_in_config in range(len(yaml_file["classification"])):
@@ -155,31 +152,31 @@ class WorkMultiPages:
     def classification_img(self):
         logger, logger_out = self.logging_init('predict_img', 'predict_img_out', 'predict_img')
 
-        for file_name in sorted(glob.glob(f"{os.path.dirname(self.cache)}/*.jpg")):
-            image = Image.open(file_name)
-            ocr_df = pytesseract.image_to_data(image, output_type='data.frame', lang='eng+rus')
-            float_cols = ocr_df.select_dtypes('float').columns
-            ocr_df[float_cols] = ocr_df[float_cols].round(0).astype(int)
-            ocr_df = ocr_df.replace(r'^\s*$', np.nan, regex=True)
-            ocr_df = ocr_df.dropna().reset_index(drop=True)
-            words = list(ocr_df.text)
-            str_of_doc = " ".join(words[:20])
-            predict = self.move_file_in_dir(str_of_doc, file_name)
-            logger_out.info(f'Filename: {os.path.basename(file_name)}, Predict class: {predict}')
-            logger.info(f'{os.path.basename(file_name)}', extra={'file_name': os.path.basename(file_name),
+        image = Image.open(self.input_file)
+        ocr_df = pytesseract.image_to_data(image, output_type='data.frame', lang='eng+rus')
+        float_cols = ocr_df.select_dtypes('float').columns
+        ocr_df[float_cols] = ocr_df[float_cols].round(0).astype(int)
+        ocr_df = ocr_df.replace(r'^\s*$', np.nan, regex=True)
+        ocr_df = ocr_df.dropna().reset_index(drop=True)
+        words = list(ocr_df.text)
+        str_of_doc = " ".join(words[:20])
+        predict = self.move_file_in_dir(str_of_doc, self.input_file)
+        logger_out.info(f'Filename: {os.path.basename(self.input_file)}, Predict class: {predict}')
+        logger.info(f'{os.path.basename(self.input_file)}', extra={'file_name': os.path.basename(self.input_file),
                                                                  'predict': predict, "text": str_of_doc})
+        return predict
 
     def __call__(self, *args, **kwargs):
-        self.len_files_in_file()
-        self.split_files_in_file()
-        self.len_files_in_cache()
+        # self.len_files_in_file()
+        # self.split_files_in_file()
+        # self.len_files_in_cache()
         self.turn_img()
         self.correct_skew(delta=1, limit=15)
-        self.classification_img()
+        return self.classification_img()
 
 
 if __name__ == "__main__":
     work_multi_pages = WorkMultiPages(sys.argv[1], sys.argv[2], sys.argv[3])
-    work_multi_pages()
+    print(work_multi_pages())
 
 

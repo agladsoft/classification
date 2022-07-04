@@ -1,0 +1,31 @@
+labels:
+  - label: "line_label"
+    key: "РУСКОН"
+
+  - label: "port_load"
+    key: "ПОРТ ПОГРУЗКИ"
+
+  - label: "port_unload"
+    key: "ОТГРУЗИТЬ В ПОРТ"
+
+  - label: "shipper"
+    key: "ОТПРАВИТЕЛЬ"
+
+  - label: "contract"
+    key: "КОНТРАКТ"
+
+  - label: "goods_name_rus"
+    key: "НАИМЕНОВАНИЕ ГРУЗА"
+
+#  - label: "all_text"
+#    key: null
+
+config_of_table:
+  del_cell: 2
+  length_of_kernel: 150
+  count_of_tables: 3 # нам нужно это число для того, чтобы мы не считали за ячейку саму таблицу и изображение
+  min_width_of_cell: 7
+  min_height_of_cell: 14
+  indent_x_text_of_cells: 0
+  indent_y_text_of_cells: 0
+  config_for_pytesseract: "--oem 3 --psm 6"

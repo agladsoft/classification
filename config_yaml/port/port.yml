@@ -1,0 +1,22 @@
+labels:
+  - label: "ShipAndVoyage"
+    key: "Таможенный пост"
+    postprocessing: "replace_symbols_and_letters"
+    validations: "is_validate_for_ship_and_voyage"
+
+  - label: "ShipAndVoyage2"
+    key: "Поручение на погрузку"
+
+config_of_table:
+  del_cell: 0
+  length_of_kernel: 100
+  count_of_tables: 2 # нам нужно это число для того, чтобы мы не считали за ячейку саму таблицу и изображение
+  min_width_of_cell: 7
+  min_height_of_cell: 7
+  indent_x_text_of_cells: 2
+  indent_y_text_of_cells: 1
+  config_for_pytesseract: "--oem 3 --psm 3"
+
+
+
+

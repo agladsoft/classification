@@ -7,3 +7,6 @@ labels:
 
   - label: "contract_label3"
     key: "Софт ИТ"
+
+#  - label: "all_text"
+#    key: null

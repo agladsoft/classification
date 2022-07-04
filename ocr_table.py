@@ -1,35 +1,29 @@
+import importlib
 import itertools
-import re
 import json
-import uuid
 import xml.etree.ElementTree as ET
 import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import glob
 import yaml
-import psycopg2
 import sys
+import re
 try:
     from PIL import Image
 except ImportError:
     import Image
 import pytesseract
 
-os.environ['OMP_THREAD_LIMIT'] = '16'
 
 file = sys.argv[1]
 output_directory = sys.argv[2]
 output_directory_csv = sys.argv[3]
 config_yaml_file = sys.argv[4]
-
-# for file in sorted(glob.glob(f"{input_directory}/*.jpg")):
+scripts_for_validations_and_postprocessing = sys.argv[5].replace('/', '.').replace(".py", "")
 
 img = cv2.imread(file, 0)
-print(img.shape)
-
 predicted_boxes_dict = dict()
 predection_box = list()
 ocr_json = dict()
@@ -40,8 +34,8 @@ ship_voyage = []
 data = pytesseract.image_to_data(img, output_type='dict', lang='rus+eng')
 boxes = len(data['level'])
 list_i = list()
-list_text = list()
 dict_text = dict()
+list_score = list()
 text_ocr = ''
 for i in range(boxes):
     (x, y, w, h) = (data["left"][i], data["top"][i], data["width"][i], data["height"][i])
@@ -49,13 +43,16 @@ for i in range(boxes):
         text_ocr = str(data["text"][i])
         x_min = x
         y_min = y
+        list_score.clear()
+        list_score.append(data["conf"][i])
     if data["text"][i] and list_i[-1]:
         text_ocr += " " + str(data["text"][i])
+        list_score.append(data["conf"][i])
         x_max = x + w
         y_max = y + h
     elif not data["text"][i]:
         try:
-            dict_text[text_ocr] = (x_min, y_min, x_max, y_max)
+            dict_text[text_ocr] = (x_min, y_min, x_max, y_max, np.mean(list_score), np.std(list_score))
         except:
             pass
     list_i.append(data["text"][i])
@@ -64,6 +61,18 @@ with open(config_yaml_file, "r") as stream:
     try:
         yaml_file = yaml.safe_load(stream)
         label_list = list()
+        is_validation = None
+        try:
+            del_cell = yaml_file['config_of_table']['del_cell']
+            length_of_kernel = yaml_file['config_of_table']['length_of_kernel']
+            count_of_tables = yaml_file['config_of_table']['count_of_tables']
+            min_width_of_cell = yaml_file['config_of_table']['min_width_of_cell']
+            min_height_of_cell = yaml_file['config_of_table']['min_height_of_cell']
+            indent_x_text_of_cells = yaml_file['config_of_table']['indent_x_text_of_cells']
+            indent_y_text_of_cells = yaml_file['config_of_table']['indent_y_text_of_cells']
+            config_for_pytesseract = yaml_file['config_of_table']['config_for_pytesseract']
+        except KeyError as ex_key_error:
+            pass
         for value in list(dict_text.keys()):
             ocr_json_label = dict()
             for len_label_in_config in range(len(yaml_file["labels"])):
@@ -75,17 +84,73 @@ with open(config_yaml_file, "r") as stream:
                     ocr_json_label["ymin"] = dict_text[value][1]
                     ocr_json_label["xmax"] = dict_text[value][2]
                     ocr_json_label["ymax"] = dict_text[value][3]
+                    ocr_json_label["score"] = dict_text[value][4]
+                    ocr_json_label["std"] = dict_text[value][5]
+
+                    try:
+                        # postprocessing = locals()[yaml_file["labels"][len_label_in_config]["postprocessing"]]
+                        class_name = yaml_file["labels"][len_label_in_config]["label"]
+                        method_name = yaml_file["labels"][len_label_in_config]["postprocessing"]
+                        imported = __import__(scripts_for_validations_and_postprocessing, fromlist=["*"])
+                        class_name = getattr(imported, class_name)
+                        postprocessing = getattr(class_name, method_name)
+                        postprocessing(value, ocr_json_label)
+
+                        # postprocessing = eval(class_name + '.' + method_name)
+                        # postprocessing(value, ocr_json_label)
+                    except KeyError as ex_key:
+                        print("Not found the key by name postprocessing")
+
+                    try:
+                        class_name = yaml_file["labels"][len_label_in_config]["label"]
+                        method_name = yaml_file["labels"][len_label_in_config]["validations"]
+                        imported = __import__(scripts_for_validations_and_postprocessing, fromlist=["*"])
+                        class_name = getattr(imported, class_name)
+                        validations = getattr(class_name, method_name)
+                        validations(ocr_json_label["text"], ocr_json_label)
+
+                        # validations = eval(class_name + '.' + method_name)
+                        # validations(ocr_json_label["text"], ocr_json_label)
+                    except KeyError:
+                        ocr_json_label["validation"] = True if ocr_json_label["score"] > 85 else False
+
                     label_list.append(ocr_json_label)
+        ocr_json_label_main["type"] = "label"
+        ocr_json_label_main["cells"] = label_list
+        predection_box.append(ocr_json_label_main)
+        table_list = list()
+        outer = []
     except yaml.YAMLError as exc:
         print(exc)
+    except TypeError as ex_type_error:
+        img = cv2.imread(file, 1)
+        noiseless_image_colored = cv2.fastNlMeansDenoisingColored(img, None, 20, 20, 7, 21)
+        data = pytesseract.image_to_string(noiseless_image_colored, lang='rus+eng')
 
-ocr_json_label_main["type"] = "label"
-ocr_json_label_main["cells"] = label_list
-predection_box.append(ocr_json_label_main)
-table_list = list()
-outer = []
+        if "unknown.yml" in config_yaml_file:
+            with open(output_directory + '/' + os.path.basename(file + '.txt'), "w") as f:
+                f.writelines(data)
+        else:
+            ocr_json_label["text"] = data
+            ocr_json_label["label"] = yaml_file["labels"][len_label_in_config]["label"]
+            label_list.append(ocr_json_label)
+
+            ocr_json_label_main["type"] = "label"
+            ocr_json_label_main["cells"] = label_list
+            predection_box.append(ocr_json_label_main)
+            table_list = list()
+            outer = []
+
+        # with open(output_directory + '/' + os.path.basename(file + '.txt'), "w") as f:
+        #     f.writelines(data)
+
 
 try:
+    # ocr_json_label_main["type"] = "label"
+    # ocr_json_label_main["cells"] = label_list
+    # predection_box.append(ocr_json_label_main)
+    # table_list = list()
+    # outer = []
     # thresholding the image to a binary image
     thresh, img_bin = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     # thresh, img_bin = cv2.threshold(img, 128, 255, cv2.THRESH_TOZERO | cv2.THRESH_OTSU)
@@ -98,7 +163,7 @@ try:
     # plt.show()
 
     # Length(width) of kernel as 100th of total width
-    kernel_len = np.array(img).shape[1] // 100
+    kernel_len = np.array(img).shape[1] // length_of_kernel
     # Defining a vertical kernel to detect all vertical lines of image
     ver_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
     # Defining a horizontal kernel to detect all horizontal lines of image
@@ -179,16 +244,16 @@ try:
     max_sum_w_and_h = {k: v for k, v in sorted(max_sum_w_and_h.items(), key=lambda item: item[0])}
     max_sum_w_and_h = dict(itertools.islice(max_sum_w_and_h.items(), 4))
     max_sum_w_and_h = {k: v for k, v in sorted(max_sum_w_and_h.items(), key=lambda item: item[1], reverse=True)}
-    max_sum_w_and_h = dict(itertools.islice(max_sum_w_and_h.items(), 3))
+    max_sum_w_and_h = dict(itertools.islice(max_sum_w_and_h.items(), count_of_tables + 1))
     max_sum_w_and_h = list(max_sum_w_and_h.values())
 
     # max_sum_w_and_h = sorted(max_sum_w_and_h, reverse=True)[:3]
     # Create list box to store all boxes in
     box = []
     # Get position (x,y), width and height for every contour and show the contour on image
-    for c in contours:
+    for i, c in enumerate(contours):
         x, y, w, h = cv2.boundingRect(c)
-        if w + h in max_sum_w_and_h or h < 7 or w < 7:
+        if w + h in max_sum_w_and_h or h < min_height_of_cell or w < min_width_of_cell or i == del_cell:
             continue
         image = cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
         box.append([x, y, w, h])
@@ -283,7 +348,7 @@ try:
                 # print(len(score.text), score.text)
                 find_container_name = re.findall('Ko[a-z]', score.text)
                 if not_count_container_name:
-                    if not find_container_name and not score.text == ' ' and len(score.text) > 4:
+                    if not find_container_name and not score.text == ' ' and len(score.text) > 1:
                         list_score.append(int(score.attrib['title'].split()[-1]))
                     str_words_in_cell += score.text + ' '
                 else:
@@ -322,18 +387,20 @@ try:
                 for k in range(len(finalboxes[i][j])):
                     y, x, w, h = finalboxes[i][j][k][0], finalboxes[i][j][k][1], finalboxes[i][j][k][2], \
                                  finalboxes[i][j][k][3]
-                    finalimg = bitnot[x+2:x+h-2, y+1:y+w-1]
+                    finalimg = bitnot[x+indent_x_text_of_cells:x+h-indent_x_text_of_cells,
+                               y+indent_y_text_of_cells:y+w-indent_y_text_of_cells]
                     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 1))
                     # border = cv2.copyMakeBorder(finalimg, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=[255, 255])
                     resizing = cv2.resize(finalimg, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
                     dilation = cv2.dilate(resizing, kernel, iterations=1)
                     erosion = cv2.erode(dilation, kernel, iterations=1)
+                    erosion = cv2.fastNlMeansDenoising(erosion, None, 20, 7, 21)
                     if 1450 > w > 1100:
                         text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr',
                                                                 lang="eng")
                         list_score_and_out = find_score_each_word(text, not_count_container_name=True)
                         list_score = list_score_and_out[1]
-                        out = list_score_and_out[0]
+                        out = list_score_and_out[0].replace('.', ',')
                     else:
                         if activation_for_short_word or list_col[-1] == col_number:
                             text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config='--oem 3 --psm 12',
@@ -343,7 +410,7 @@ try:
                             text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config='--oem 3 --psm 6',
                                                                     lang="rus+eng")
                         else:
-                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config='--oem 3 --psm 3',
+                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config=config_for_pytesseract,
                                                                     lang="rus+eng")
                         list_score_and_out = find_score_each_word(text)
                         list_score = list_score_and_out[1]
@@ -364,6 +431,7 @@ try:
                         table_dict['ymax'] = x + h
                         table_dict['score'] = np.mean(list_score) if len(list_score) != 0 else None
                         table_dict['std'] = np.std(list_score) if len(list_score) != 0 else None
+                        table_dict['validation'] = True if np.mean(list_score) > 85 else False
                         table_list.append(table_dict)
                     try:
                         list_col.append(row_col[1])
@@ -384,9 +452,8 @@ try:
     # Creating a dataframe of the generated OCR list
     arr = np.array(outer)
     dataframe = pd.DataFrame(arr.reshape(len(row), len_long_row))
-    # dataframe = dataframe.append(ship_voyage)
-    insert_line = pd.DataFrame(ship_voyage)
-    dataframe = pd.concat([insert_line, dataframe])
+    # insert_line = pd.DataFrame(ship_voyage)
+    # dataframe = pd.concat([insert_line, dataframe])
     print(dataframe.to_string())
 
     dataframe.to_csv(output_directory_csv + '/' + os.path.basename(file + '.csv'), encoding='utf-8', index=False)
@@ -400,21 +467,34 @@ try:
     with open(file_json_save, 'w', encoding='utf-8') as f:
         json.dump(predicted_boxes_dict, f, ensure_ascii=False, indent=4)
 
-    # conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
-    # cur = conn.cursor()
-    # data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
-    # sql = f"INSERT INTO export_read_from_pdf (data_json, image, url_image) VALUES (%s, %s, %s)"
-    # val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
-    # cur.execute(sql, val)
-    # cur.close()
-    # conn.commit()
-    # conn.close()
+    print(os.path.basename(config_yaml_file))
+    # if "line" in os.path.basename(config_yaml_file):
+    #     conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
+    #     cur = conn.cursor()
+    #     data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
+    #     sql = f"INSERT INTO export_read_from_pdf_type_line (data_json, image, url_image) VALUES (%s, %s, %s)"
+    #     val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
+    #     cur.execute(sql, val)
+    #     cur.close()
+    #     conn.commit()
+    #     conn.close()
+    # elif "port" in os.path.basename(config_yaml_file):
+    #     conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
+    #     cur = conn.cursor()
+    #     data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
+    #     sql = f"INSERT INTO export_read_from_pdf (data_json, image, url_image) VALUES (%s, %s, %s)"
+    #     val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
+    #     cur.execute(sql, val)
+    #     cur.close()
+    #     conn.commit()
+    #     conn.close()
 except:
     file_json_save = output_directory + '/' + os.path.basename(file + '.json')
     predicted_boxes_dict['file_name'] = os.path.basename(file)
     predicted_boxes_dict['predicted_box'] = predection_box
-    with open(file_json_save, 'w', encoding='utf-8') as f:
-        json.dump(predicted_boxes_dict, f, ensure_ascii=False, indent=4)
+    if predection_box:
+        with open(file_json_save, 'w', encoding='utf-8') as f:
+            json.dump(predicted_boxes_dict, f, ensure_ascii=False, indent=4)
 
     # conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
     # cur = conn.cursor()
