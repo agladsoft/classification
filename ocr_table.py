@@ -1,4 +1,3 @@
-import importlib
 import itertools
 import json
 import xml.etree.ElementTree as ET
@@ -10,12 +9,13 @@ import os
 import yaml
 import sys
 import re
+import psycopg2
+
 try:
     from PIL import Image
 except ImportError:
     import Image
 import pytesseract
-
 
 file = sys.argv[1]
 output_directory = sys.argv[2]
@@ -73,6 +73,17 @@ with open(config_yaml_file, "r") as stream:
             config_for_pytesseract = yaml_file['config_of_table']['config_for_pytesseract']
         except KeyError as ex_key_error:
             pass
+
+        try:
+            database = yaml_file['config_of_database']['database']
+            user = yaml_file['config_of_database']['user']
+            password = yaml_file['config_of_database']['password']
+            host = yaml_file['config_of_database']['host']
+            port = yaml_file['config_of_database']['port']
+            table = yaml_file['config_of_database']['table']
+        except KeyError as ex_key_error:
+            pass
+
         for value in list(dict_text.keys()):
             ocr_json_label = dict()
             for len_label_in_config in range(len(yaml_file["labels"])):
@@ -127,23 +138,19 @@ with open(config_yaml_file, "r") as stream:
         noiseless_image_colored = cv2.fastNlMeansDenoisingColored(img, None, 20, 20, 7, 21)
         data = pytesseract.image_to_string(noiseless_image_colored, lang='rus+eng')
 
-        if "unknown.yml" in config_yaml_file:
-            with open(output_directory + '/' + os.path.basename(file + '.txt'), "w") as f:
-                f.writelines(data)
-        else:
-            ocr_json_label["text"] = data
-            ocr_json_label["label"] = yaml_file["labels"][len_label_in_config]["label"]
-            label_list.append(ocr_json_label)
+        # if "unknown.yml" in config_yaml_file:
+        #     with open(output_directory + '/' + os.path.basename(file + '.txt'), "w") as f:
+        #         f.writelines(data)
+        # else:
+        ocr_json_label["text"] = data
+        ocr_json_label["label"] = yaml_file["labels"][len_label_in_config]["label"]
+        label_list.append(ocr_json_label)
 
-            ocr_json_label_main["type"] = "label"
-            ocr_json_label_main["cells"] = label_list
-            predection_box.append(ocr_json_label_main)
-            table_list = list()
-            outer = []
-
-        # with open(output_directory + '/' + os.path.basename(file + '.txt'), "w") as f:
-        #     f.writelines(data)
-
+        ocr_json_label_main["type"] = "label"
+        ocr_json_label_main["cells"] = label_list
+        predection_box.append(ocr_json_label_main)
+        table_list = list()
+        outer = []
 
 try:
     # ocr_json_label_main["type"] = "label"
@@ -201,10 +208,10 @@ try:
     # Detect contours for following box detection
     contours, hierarchy = cv2.findContours(img_vh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+
     # cv2.drawContours(img, contours, -1, (0,255,0), 1)
     # plotting = plt.imshow(img, cmap='gray')
     # plt.show()
-
 
     def sort_contours(cnts, method="left-to-right"):
         reverse = False
@@ -290,7 +297,6 @@ try:
         for col, y_col in enumerate(rows, 1):
             dict_with_row_col[row_2, col] = y_col
 
-
     list_len_row = list()
     dict_len_row = dict()
     for count_row in range(len(row)):
@@ -300,7 +306,7 @@ try:
     len_long_row = sorted(list_len_row)[-1]
     try:
         len_long_row_pred_max = sorted(set(list_len_row))[-2] if sorted(set(list_len_row))[-2] <= 7 else \
-        sorted(set(list_len_row))[-3]
+            sorted(set(list_len_row))[-3]
     except:
         len_long_row_pred_max = sorted(set(list_len_row))[-1]
 
@@ -387,8 +393,8 @@ try:
                 for k in range(len(finalboxes[i][j])):
                     y, x, w, h = finalboxes[i][j][k][0], finalboxes[i][j][k][1], finalboxes[i][j][k][2], \
                                  finalboxes[i][j][k][3]
-                    finalimg = bitnot[x+indent_x_text_of_cells:x+h-indent_x_text_of_cells,
-                               y+indent_y_text_of_cells:y+w-indent_y_text_of_cells]
+                    finalimg = bitnot[x + indent_x_text_of_cells:x + h - indent_x_text_of_cells,
+                               y + indent_y_text_of_cells:y + w - indent_y_text_of_cells]
                     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 1))
                     # border = cv2.copyMakeBorder(finalimg, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=[255, 255])
                     resizing = cv2.resize(finalimg, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
@@ -403,14 +409,16 @@ try:
                         out = list_score_and_out[0].replace('.', ',')
                     else:
                         if activation_for_short_word or list_col[-1] == col_number:
-                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config='--oem 3 --psm 12',
+                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr',
+                                                                    config='--oem 3 --psm 12',
                                                                     lang="rus+eng")
                             activation_for_short_word = False
                         elif list_col[-1] == col_number_goods:
                             text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config='--oem 3 --psm 6',
                                                                     lang="rus+eng")
                         else:
-                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr', config=config_for_pytesseract,
+                            text = pytesseract.image_to_pdf_or_hocr(erosion, extension='hocr',
+                                                                    config=config_for_pytesseract,
                                                                     lang="rus+eng")
                         list_score_and_out = find_score_each_word(text)
                         list_score = list_score_and_out[1]
@@ -418,7 +426,9 @@ try:
 
                     inner = inner + " " + out.strip()
                     inner = inner.translate({ord(c): " " for c in "!@#$%^&*()[]{};<>?\|`~-=_+"})
-                    inner = inner.replace('', ' ').replace('\n', ' ').replace('  ', ' ').replace('Веск', 'Вес к').replace('А$ ВОЗАМА', 'AS ROSALIA').replace('Bеск', 'Вес к').replace('Beск', 'Вес к')
+                    inner = inner.replace('', ' ').replace('\n', ' ').replace('  ', ' ').replace('Веск',
+                                                                                                  'Вес к').replace(
+                        'А$ ВОЗАМА', 'AS ROSALIA').replace('Bеск', 'Вес к').replace('Beск', 'Вес к')
                     print(inner)
                     if inner != '' and inner != ' ' and len(inner) > 2:
                         table_dict['text'] = inner.strip()
@@ -459,35 +469,25 @@ try:
     dataframe.to_csv(output_directory_csv + '/' + os.path.basename(file + '.csv'), encoding='utf-8', index=False)
     file_json_save = output_directory + '/' + os.path.basename(file + '.json')
 
-    # dataframe.to_csv(f"ocr_table/{os.path.basename(file + '.csv')}", encoding='utf-8', index=False)
-    # file_json_save = f"{output_directory}/{os.path.basename(file + '.json')}"
-
     predicted_boxes_dict['file_name'] = os.path.basename(file)
     predicted_boxes_dict['predicted_box'] = predection_box
     with open(file_json_save, 'w', encoding='utf-8') as f:
         json.dump(predicted_boxes_dict, f, ensure_ascii=False, indent=4)
 
     print(os.path.basename(config_yaml_file))
-    # if "line" in os.path.basename(config_yaml_file):
-    #     conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
+
+    # try:
+    #     conn = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
     #     cur = conn.cursor()
     #     data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
-    #     sql = f"INSERT INTO export_read_from_pdf_type_line (data_json, image, url_image) VALUES (%s, %s, %s)"
+    #     sql = f"INSERT INTO {table} (data_json, image, url_image) VALUES (%s, %s, %s)"
     #     val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
     #     cur.execute(sql, val)
     #     cur.close()
     #     conn.commit()
     #     conn.close()
-    # elif "port" in os.path.basename(config_yaml_file):
-    #     conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
-    #     cur = conn.cursor()
-    #     data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
-    #     sql = f"INSERT INTO export_read_from_pdf (data_json, image, url_image) VALUES (%s, %s, %s)"
-    #     val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
-    #     cur.execute(sql, val)
-    #     cur.close()
-    #     conn.commit()
-    #     conn.close()
+    # except Exception as exception:
+    #     print(exception)
 except:
     file_json_save = output_directory + '/' + os.path.basename(file + '.json')
     predicted_boxes_dict['file_name'] = os.path.basename(file)
@@ -496,12 +496,15 @@ except:
         with open(file_json_save, 'w', encoding='utf-8') as f:
             json.dump(predicted_boxes_dict, f, ensure_ascii=False, indent=4)
 
-    # conn = psycopg2.connect(database="marketing_db", user="postgres", password="warface123", host="localhost", port="5432")
-    # cur = conn.cursor()
-    # data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
-    # sql = f"INSERT INTO export_read_from_pdf (data_json, image, url_image) VALUES (%s, %s, %s)"
-    # val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
-    # cur.execute(sql, val)
-    # cur.close()
-    # conn.commit()
-    # conn.close()
+    # try:
+    #     conn = psycopg2.connect(database=database, user=user, password=password, host=host, port=port)
+    #     cur = conn.cursor()
+    #     data_json = json.dumps(predicted_boxes_dict, ensure_ascii=False, indent=4)
+    #     sql = f"INSERT INTO {table} (data_json, image, url_image) VALUES (%s, %s, %s)"
+    #     val = (data_json, f'upload/{os.path.basename(file_json_save)}', f'{os.path.basename(file_json_save)}')
+    #     cur.execute(sql, val)
+    #     cur.close()
+    #     conn.commit()
+    #     conn.close()
+    # except Exception as exception:
+    #     print(exception)
